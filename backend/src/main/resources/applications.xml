@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           https://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- Увімкнення сканування компонентів -->
+    <context:component-scan base-package="org.framework.cors"/>
+<context:property-placeholder location="classpath:Musicsetup.property"/>  <!--file with resouse veluable-->
+  
+
+    <!-- Оголошення bean через XML -->
+    <!--<bean id="Musicstart"
+          class=" org.framework.cors.liryc"
+    init-method="myMysic"
+ destroy-method="myEnd"
+  factory-method="myChoice">
+    </bean>--> <!--BEANS!!!--> <!--in menual-->
+ <!--<bean id="Musicsetup"
+          class=" org.framework.cors.Musicsetup" 
+  scope ="prototype"
+ init-method="myMysic"
+ destroy-method="myEnd"
+  factory-method="myChoice">
+  <property name="name" value="${musicsetup.name}"/>
+  <property name="volume" value="${musicsetup.volume}"/>
+
+    </bean>-->
+</beans>
