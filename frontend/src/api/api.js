@@ -1,19 +1,18 @@
 // src/api/api.js
 import axios from "axios";
-
-const BASE = "http://localhost:8080";
+const BASE = "/api";
 
 // API instances
 export const authApi = axios.create({
-    baseURL: BASE + "/api/auth"
+    baseURL: "/api/auth"
 });
 
 export const userApi = axios.create({
-    baseURL: BASE + "/api/user"
+    baseURL: "/api/user"
 });
 
 export const adminApi = axios.create({
-    baseURL: BASE + "/api/admin"
+    baseURL: "/api/admin"
 });
 
 // Interceptor

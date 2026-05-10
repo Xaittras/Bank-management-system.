@@ -11,7 +11,7 @@ import javarax.model.Account;
 
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
-	List<Account> findByUser_Id(Long userId);
+
 
 
 	List<Account> findAllByUserId(Long userId);
