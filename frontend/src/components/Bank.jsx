@@ -3,6 +3,7 @@ import { adminApi, userApi } from "../api/api";
 import BankCard from "./BankCard";
 import { useNavigate } from "react-router-dom";
 import AdminPanel from "./AdminPanel";
+import { getAuthData } from "./auth";
 function Bank() {
   const [transactions, setTransactions] = useState([]);
   
@@ -14,33 +15,19 @@ const [selectedAccountId, setSelectedAccountId] = useState(null);
 const [users, setUsers] = useState([]);
 const [accounts, setAccounts] = useState([]);
 const [role, setRole] = useState(null); 
+
 useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) navigate("/");
-  }, [navigate]);
+  const auth = getAuthData();
 
-  useEffect(() => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    try {
-     const token = localStorage.getItem("token");
-
-const base64Url = token.split(".")[1];
-
-const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-
-const payload = JSON.parse(atob(base64));
-
-console.log(payload);
-      setUserId(payload.userId || payload.sub);
-    setRole(payload.role?.[0]?.replace("ROLE_", "")); // 👈 залежить від backend
-
-    } catch (e) {
-      console.error("Invalid token");
-    }
+  if (!auth) {
+    navigate("/");
+    return;
   }
-}, []);
+
+  setUserId(auth.userId);
+  setRole(auth.role);
+
+}, [navigate]);
 
 const getUserAccounts = async () => {
   try {
@@ -60,11 +47,11 @@ useEffect(() => {
     getTransactions(selectedAccountId);
   }
 }, [selectedAccountId]);
-  useEffect(() => {
-  if (accounts.length > 0) {
+ useEffect(() => {
+  if (accounts.length > 0 && !selectedAccountId) {
     setSelectedAccountId(accounts[0].id);
   }
-}, [accounts]);
+}, [accounts, selectedAccountId]);
 
 useEffect(() => {
   if (role === "ADMIN") getAllUsers();
@@ -95,40 +82,59 @@ const setAmountForAccount = (id, value) => {
 const deposit = async (accountId) => {
   const amount = Number(amounts[accountId]);
 
-if (!amount || amount <= 0) return;
+  if (!amount || amount <= 0) return;
+
   try {
     await userApi.post("/deposit", {
       accountId,
-      amount: Number(amounts[accountId] || 0)
+      amount
     });
 
     alert("Поповнення успішне");
+
     await getUserAccounts();
+
+    // ✅ ОЧИСТКА INPUT
+    setAmounts(prev => ({ ...prev, [accountId]: "" }));
+
   } catch (err) {
     alert("Помилка депозиту");
   }
 };
-  const withdraw = async (accountId) => {
-    try {
-      await userApi.post("/withdraw", {
-        accountId,
-        amount: Number(amounts[accountId] || 0)
-      });
+const withdraw = async (accountId) => {
+  const amount = Number(amounts[accountId]);
 
-      alert("Зняття успішне");
-      await getUserAccounts();
-    } catch (err) {
-      alert("Помилка зняття");
-    }
-  };
+  if (!amount || amount <= 0) return;
+
+  try {
+    await userApi.post("/withdraw", {
+      accountId,
+      amount
+    });
+
+    alert("Зняття успішне");
+
+    await getUserAccounts();
+
+    // ✅ ОЧИСТКА INPUT
+    setAmounts(prev => ({ ...prev, [accountId]: "" }));
+
+  } catch (err) {
+    alert("Помилка зняття");
+  }
+};
 
   const logout = () => {
     localStorage.removeItem("token");
     navigate("/");
   };
 const getTransactions = async (accountId) => {
-  const res = await userApi.get(`/accounts/${accountId}/transactions`);
-  setTransactions(res.data);
+  try {
+    const res = await userApi.get(`/accounts/${accountId}/transactions`);
+    setTransactions(res.data);
+  } catch {
+    alert("Помилка завантаження транзакцій");
+  }
 };
 if (role === "ADMIN") {
   return (
@@ -170,7 +176,7 @@ return (
               key={acc.id}
               onClick={() => {
                 setSelectedAccountId(acc.id);
-                getTransactions(acc.id);
+               
               }}
               style={{
                 padding: "10px",
