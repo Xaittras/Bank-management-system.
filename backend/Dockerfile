@@ -1,9 +1,7 @@
-FROM eclipse-temurin:21
+FROM eclipse-temurin:21-jdk
 
 WORKDIR /app
 
-COPY . .
+COPY target/*.jar app.jar
 
-RUN chmod +x mvnw
-
-CMD ["./mvnw", "spring-boot:run"]
+ENTRYPOINT ["java","-jar","app.jar"]

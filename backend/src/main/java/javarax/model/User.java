@@ -101,9 +101,10 @@ public class User implements UserDetails, Serializable {
 		this.role = role;
 	}
 
+	private BigDecimal balance;
+
 	public BigDecimal getBalance() {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getBalance'");
+		return balance;
 	}
 
 	public String getEmail() {

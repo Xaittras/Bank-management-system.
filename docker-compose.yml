@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:15
     container_name: bank-db
@@ -9,7 +8,11 @@ services:
       POSTGRES_PASSWORD: MoNeY
     ports:
       - "5433:5432"
-
+  redis:
+    image: redis:7-alpine
+    container_name: bank-redis
+    ports:
+      - "6379:6379"
   backend:
     build: ./backend
     ports:
@@ -19,9 +22,9 @@ services:
       - maven-cache:/root/.m2
     depends_on:
       - db
+      - redis
     environment:
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
-
   frontend:
     build: ./frontend
     ports:
@@ -31,7 +34,5 @@ services:
       - /app/node_modules
     depends_on:
       - backend
-
 volumes:
   maven-cache:
-
