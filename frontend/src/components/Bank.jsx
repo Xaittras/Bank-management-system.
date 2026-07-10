@@ -93,7 +93,7 @@ const deposit = async (accountId) => {
     alert("Поповнення успішне");
 
     await getUserAccounts();
-
+    await getTransactions(accountId);
     // ✅ ОЧИСТКА INPUT
     setAmounts(prev => ({ ...prev, [accountId]: "" }));
 
@@ -116,6 +116,7 @@ const withdraw = async (accountId) => {
 
     await getUserAccounts();
 
+    await getTransactions(accountId);
     // ✅ ОЧИСТКА INPUT
     setAmounts(prev => ({ ...prev, [accountId]: "" }));
 

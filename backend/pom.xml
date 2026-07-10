@@ -46,6 +46,11 @@
     <artifactId>redisson-spring-boot-starter</artifactId>
     <version>3.34.1</version>
 </dependency>
+<!-- KAFKA -->
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+</dependency>
 <!-- POSTGRES -->
 <dependency>
 <groupId>org.postgresql</groupId>

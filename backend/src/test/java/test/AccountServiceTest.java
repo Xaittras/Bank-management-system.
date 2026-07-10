@@ -1,11 +1,11 @@
 package test;
 
-
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,10 +19,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 
 import javarax.dto.AccountResponse;
 import javarax.exception.ResourceNotFoundException;
+import javarax.kafka.EventPublisher;
 import javarax.model.Account;
+import javarax.model.Transaction;
 import javarax.model.User;
 import javarax.service.AccountService;
 import javarax.storage.AccountRepository;
@@ -40,6 +44,15 @@ class AccountServiceTest {
 
 	@Mock
 	private TransactionRepository transactionRepository;
+
+	@Mock
+	private RedissonClient redissonClient;
+
+	@Mock
+	private EventPublisher eventPublisher;
+
+	@Mock
+	private RLock lock;
 
 	@InjectMocks
 	private AccountService accountService;
@@ -60,14 +73,24 @@ class AccountServiceTest {
 		account.setBalance(BigDecimal.valueOf(100));
 	}
 
+	/**
+	 * deposit()/withdraw() беруть distributed lock через Redisson перед тим,
+	 * як торкнутись балансу. У тесті мокаємо lock так, ніби він одразу вільний.
+	 */
+	private void stubLockAcquired() throws InterruptedException {
+		when(redissonClient.getLock(anyString())).thenReturn(lock);
+		when(lock.tryLock(anyLong(), anyLong(), any())).thenReturn(true);
+		when(lock.isHeldByCurrentThread()).thenReturn(true);
+	}
+
 	@Test
 	void shouldCreateAccount() {
 
 		when(userRepository.findById(1L))
-		.thenReturn(Optional.of(user));
+				.thenReturn(Optional.of(user));
 
 		when(accountRepository.save(any(Account.class)))
-		.thenAnswer(invocation -> invocation.getArgument(0));
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		Account created = accountService.createAccount(1L, "Main Account");
 
@@ -79,10 +102,14 @@ class AccountServiceTest {
 	}
 
 	@Test
-	void shouldDepositMoney() {
+	void shouldDepositMoney() throws InterruptedException {
+
+		stubLockAcquired();
 
 		when(accountRepository.findByIdAndUser_Id(1L, 1L))
-		.thenReturn(Optional.of(account));
+				.thenReturn(Optional.of(account));
+		when(transactionRepository.save(any(Transaction.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		accountService.deposit(1L, 1L, BigDecimal.valueOf(50));
 
@@ -95,10 +122,14 @@ class AccountServiceTest {
 	}
 
 	@Test
-	void shouldWithdrawMoney() {
+	void shouldWithdrawMoney() throws InterruptedException {
+
+		stubLockAcquired();
 
 		when(accountRepository.findByIdAndUser_Id(1L, 1L))
-		.thenReturn(Optional.of(account));
+				.thenReturn(Optional.of(account));
+		when(transactionRepository.save(any(Transaction.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		accountService.withdraw(1L, 1L, BigDecimal.valueOf(40));
 
@@ -111,10 +142,12 @@ class AccountServiceTest {
 	}
 
 	@Test
-	void shouldThrowExceptionWhenBalanceInsufficient() {
+	void shouldThrowExceptionWhenBalanceInsufficient() throws InterruptedException {
+
+		stubLockAcquired();
 
 		when(accountRepository.findByIdAndUser_Id(1L, 1L))
-		.thenReturn(Optional.of(account));
+				.thenReturn(Optional.of(account));
 
 		IllegalArgumentException ex = assertThrows(
 				IllegalArgumentException.class,
@@ -131,6 +164,8 @@ class AccountServiceTest {
 	@Test
 	void shouldThrowExceptionForNegativeDeposit() {
 
+		// validateAmount() кидає виняток ДО того, як бере lock,
+		// тож стаб на redissonClient тут не потрібен
 		IllegalArgumentException ex = assertThrows(
 				IllegalArgumentException.class,
 				() -> accountService.deposit(
@@ -147,23 +182,23 @@ class AccountServiceTest {
 	void shouldReturnAccountsByEmail() {
 
 		when(userRepository.findByEmail("test@gmail.com"))
-		.thenReturn(Optional.of(user));
+				.thenReturn(Optional.of(user));
 
 		when(accountRepository.findAllByUserId(1L))
-		.thenReturn(List.of(account));
+				.thenReturn(List.of(account));
 
 		List<AccountResponse> result =
 				accountService.getAccountsByEmail("test@gmail.com");
 
 		assertEquals(1, result.size());
-		assertEquals(account.getId(), result.get(0).id());
+		assertEquals(account.getId(), result.get(0).getId());
 	}
 
 	@Test
 	void shouldThrowWhenUserNotFound() {
 
 		when(userRepository.findByEmail("wrong@gmail.com"))
-		.thenReturn(Optional.empty());
+				.thenReturn(Optional.empty());
 
 		assertThrows(
 				ResourceNotFoundException.class,

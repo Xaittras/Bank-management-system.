@@ -2,6 +2,7 @@ package javarax.service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -14,7 +15,13 @@ import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 import javarax.dto.AccountResponse;
 import javarax.dto.UserAccountsResponse;
+import javarax.event.AccountCreatedEvent;
+import javarax.event.MoneyDepositedEvent;
+import javarax.event.MoneyWithdrawnEvent;
+import javarax.event.TransactionCreatedEvent;
 import javarax.exception.ResourceNotFoundException;
+import javarax.kafka.EventPublisher;
+import javarax.kafka.KafkaTopics;
 import javarax.model.Account;
 import javarax.model.Transaction;
 import javarax.model.User;
@@ -29,13 +36,16 @@ public class AccountService {
 	private final UserRepository userRepository;
 	private final TransactionRepository transactionRepository;
 	private final RedissonClient redissonClient;
+	private final EventPublisher eventPublisher;
 
 	public AccountService(AccountRepository accountRepository, UserRepository userRepository,
-			TransactionRepository transactionRepository, RedissonClient redissonClient) {
+			TransactionRepository transactionRepository, RedissonClient redissonClient,
+			EventPublisher eventPublisher) {
 		this.accountRepository = accountRepository;
 		this.userRepository = userRepository;
 		this.transactionRepository = transactionRepository;
 		this.redissonClient = redissonClient;
+		this.eventPublisher = eventPublisher;
 	}
 
 	public Account createAccount(Long userId, String name) {
@@ -53,7 +63,12 @@ public class AccountService {
 			account.setName("My Account");
 		}
 
-		return accountRepository.save(account);
+		Account saved = accountRepository.save(account);
+
+		eventPublisher.publish(KafkaTopics.ACCOUNT_EVENTS, saved.getId().toString(),
+				new AccountCreatedEvent(saved.getId(), userId, saved.getAccountNumber(), Instant.now()));
+
+		return saved;
 	}
 
 	private AccountResponse mapToDto(Account account) {
@@ -71,14 +86,14 @@ public class AccountService {
 				.toList();
 	}
 
-	private void createTransaction(Account account, BigDecimal amount, String type, String desc) {
+	private Transaction createTransaction(Account account, BigDecimal amount, String type, String desc) {
 		Transaction tx = new Transaction();
 		tx.setAccount(account);
 		tx.setAmount(amount.doubleValue());
 		tx.setType(type);
 		tx.setDescription(desc);
 		tx.setCreatedAt(LocalDateTime.now());
-		transactionRepository.save(tx);
+		return transactionRepository.save(tx);
 	}
 
 	/**
@@ -111,7 +126,12 @@ public class AccountService {
 					.orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
 			account.setBalance(account.getBalance().add(amount));
-			createTransaction(account, amount, "DEPOSIT", "Deposit");
+			Transaction tx = createTransaction(account, amount, "DEPOSIT", "Deposit");
+
+			eventPublisher.publish(KafkaTopics.TRANSACTION_EVENTS, accountId.toString(),
+					new MoneyDepositedEvent(tx.getId(), accountId, amount, account.getBalance(), Instant.now()));
+			eventPublisher.publish(KafkaTopics.TRANSACTION_EVENTS, accountId.toString(),
+					new TransactionCreatedEvent(tx.getId(), accountId, "DEPOSIT", amount, Instant.now()));
 
 			return account;
 		} catch (InterruptedException e) {
@@ -145,7 +165,12 @@ public class AccountService {
 			}
 
 			account.setBalance(account.getBalance().subtract(amount));
-			createTransaction(account, amount, "WITHDRAW", "Withdraw");
+			Transaction tx = createTransaction(account, amount, "WITHDRAW", "Withdraw");
+
+			eventPublisher.publish(KafkaTopics.TRANSACTION_EVENTS, accountId.toString(),
+					new MoneyWithdrawnEvent(tx.getId(), accountId, amount, account.getBalance(), Instant.now()));
+			eventPublisher.publish(KafkaTopics.TRANSACTION_EVENTS, accountId.toString(),
+					new TransactionCreatedEvent(tx.getId(), accountId, "WITHDRAW", amount, Instant.now()));
 
 			return account;
 		} catch (InterruptedException e) {
