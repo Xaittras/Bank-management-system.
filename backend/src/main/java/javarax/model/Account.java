@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
 
 @Entity
 
-@Table(name = "accounts") // Good practice to pluralize table names
+@Table(name = "accounts") 
 public class Account {
 
 	@Id
