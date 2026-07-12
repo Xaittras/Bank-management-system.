@@ -1,54 +1,204 @@
-Project
+# 🏦 Bank Management System
 
-RESTful banking API with authentication, account management, transaction history and React frontend.
-🏦 Bank Management System
+A full-stack banking application built with **Java Spring Boot** and **React** that demonstrates modern backend development practices including JWT authentication, role-based authorization, RESTful APIs, Dockerized deployment, and PostgreSQL persistence.
 
-Full-stack banking application with authentication, account management and transaction history.
-🚀 Features
+This project was created as a portfolio application for a **Junior Java Backend / Full-Stack Developer** position.
 
-    User registration and login
-    JWT authentication
-    Role-based access (USER / ADMIN)
-    Create bank accounts
-    Deposit and withdraw money
-    Transaction history
-    Secure REST API
-    Frontend UI for interacting with backend
+---
 
-🧰 Tech Stack
-Backend
+# ✨ Features
 
-    Java
-    Spring Boot
-    Spring Security
-    JWT
-    PostgreSQL
+## Authentication
+- User registration
+- Secure login
+- JWT authentication
+- Password encryption with BCrypt
+- Role-based authorization (USER / ADMIN)
+
+## Account Management
+- Create bank accounts
+- View all user accounts
+- Deposit money
+- Withdraw money
+- Balance validation
+
+## Transactions
+- Transaction history
+- Deposit records
+- Withdrawal records
+- Automatic timestamp for every transaction
+
+## Admin Panel
+- View all registered users
+- Role-based access using Spring Security
+
+---
+
+# 🛠 Tech Stack
+
+## Backend
+
+- Java 21
+- Spring Boot
+- Spring Security
+- Spring Data JPA
+- Hibernate
+- JWT Authentication
+- PostgreSQL
+- Maven
+
+## Frontend
+
+- React
+- JavaScript
+- CSS
+- Axios
+
+## DevOps
+
+- Docker
+- Docker Compose
+- Git
+- GitHub
+
+---
+
+# 🏗 Project Architecture
+
+```
+Frontend (React)
+        │
+        ▼
+REST API (Spring Boot)
+        │
+        ▼
+Spring Security
+        │
+        ▼
+Business Layer
+        │
+        ▼
+JPA / Hibernate
+        │
+        ▼
+PostgreSQL
+```
+
+---
+
+# 📂 Backend Structure
+
+```
+src
+ ├── controller
+ ├── service
+ ├── repository
+ ├── entity
+ ├── dto
+ ├── mapper
+ ├── security
+ ├── config
+ ├── exception
+ └── util
+```
+
+---
+
+# 🔐 Security
+
+The application uses Spring Security with JWT.
+
+- Stateless authentication
+- Protected endpoints
+- Role-based authorization
+- BCrypt password hashing
+- JWT access token
+
+---
+
+# 🗄 Database
+
+Main entities:
+
+- User
+- Account
+- Transaction
+
+Relationships:
+
+- One User → Many Accounts
+- One Account → Many Transactions
+
+---
+
+# 🐳 Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Application will start:
 
 Frontend
 
-    React
-    JavaScript
-    CSS
+```
+http://localhost:5174
+```
 
-DevOps
+Backend
 
-    Docker
-    Docker Compose
-    Git
+```
+http://localhost:8081
+```
 
-🔐 Authentication
+---
 
-The application uses JWT (JSON Web Token) for authentication.
+# 📡 REST API
 
-    Token is generated after login
-    Token is required for protected endpoints
-    Roles are embedded inside token
+Authentication
 
-🗄️ Database
+```
+POST /api/auth/register
+POST /api/auth/login
+```
 
-    PostgreSQL is used as main database
-    Entities: User, Account, Transaction
+User
 
-🐳 Run with Docker
+```
+GET    /api/user/accounts
+POST   /api/user/accounts
+POST   /api/user/deposit
+POST   /api/user/withdraw
+GET    /api/user/accounts/{id}/transactions
+```
 
-docker compose up --build
+Admin
+
+```
+GET /api/admin/users
+```
+
+---
+
+# 🎯 Skills 
+
+- Object-Oriented Programming
+- REST API Development
+- Spring Boot
+- Spring Security
+- JWT Authentication
+- Hibernate / JPA
+- PostgreSQL
+- Docker
+- React
+- Git
+- Layered Architecture
+- DTO Pattern
+- Exception Handling
+- Role-Based Authorization
+
+---
+
+# 👨‍💻 Author
+
+Developed as a portfolio project show Java Backend development skills.
