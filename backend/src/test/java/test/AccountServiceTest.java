@@ -73,10 +73,7 @@ class AccountServiceTest {
 		account.setBalance(BigDecimal.valueOf(100));
 	}
 
-	/**
-	 * deposit()/withdraw() беруть distributed lock через Redisson перед тим,
-	 * як торкнутись балансу. У тесті мокаємо lock так, ніби він одразу вільний.
-	 */
+
 	private void stubLockAcquired() throws InterruptedException {
 		when(redissonClient.getLock(anyString())).thenReturn(lock);
 		when(lock.tryLock(anyLong(), anyLong(), any())).thenReturn(true);

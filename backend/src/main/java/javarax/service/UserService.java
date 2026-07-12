@@ -43,7 +43,7 @@ public class UserService {
 		eventPublisher.publish(KafkaTopics.USER_EVENTS, savedUser.getId().toString(),
 				new UserCreatedEvent(savedUser.getId(), savedUser.getEmail(), Instant.now()));
 
-		// 🔥 ОЦЕ ВАЖЛИВО
+
 		accountService.createAccount(savedUser.getId(), "Main account");
 
 		return savedUser;
