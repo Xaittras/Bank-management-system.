@@ -17,5 +17,5 @@ public class TransactionResponseDto {
 	private LocalDateTime createdAt;
 	private Long accountId;
 
-	// getters/setters
+
 }
