@@ -9,5 +9,4 @@ import javarax.model.Transaction;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
 	List<Transaction> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
-	List<Transaction> findByAccountId(Long accountId);
 }

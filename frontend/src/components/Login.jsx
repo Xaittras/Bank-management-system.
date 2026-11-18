@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { authApi } from "../api/api";
+import { authApi, errorMessage } from "../api/api";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
@@ -12,13 +12,9 @@ function Login() {
     const res = await authApi.post("/login", { email, password });
 
     localStorage.setItem("token", res.data.token);
-console.log(res.data);
     navigate("/bank");
   }catch (err) {
-  const message =
-    err.response?.data || "Помилка входу";
-
-  alert(message);
+  alert(errorMessage(err, "Помилка входу"));
 }
 };
 

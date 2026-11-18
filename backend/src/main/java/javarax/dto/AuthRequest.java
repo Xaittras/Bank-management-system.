@@ -1,14 +1,16 @@
 package javarax.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
 public class AuthRequest {
-	private String username;
-	private String password;
+	@NotBlank
+	@Size(max = 254)
 	private String email;
 
-	public String getUsername() { return username; }
-	public String getPassword() { return password; }
-	public String getEmail() { return email; }
-
-
-
+	@NotBlank
+	@Size(max = 72)
+	private String password;
 }

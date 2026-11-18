@@ -4,104 +4,65 @@ import java.security.Key;
 import java.util.Date;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import javarax.dto.CustomUserDetails;
+
 @Service
 public class JwtService {
 
-	private final String SECRET = "bXktc3VwZXItc2VjcmV0LWtleS1mb3Itand0LXRva2Vu";
+	private final Key signKey;
+	private final long expirationMs;
+
+	/** secret: base64, мінімум 32 байти (HS256). Береться з оточення, а не з коду. */
+	public JwtService(@Value("${jwt.secret}") String secret,
+			@Value("${jwt.expiration-ms:3600000}") long expirationMs) {
+		byte[] keyBytes = Decoders.BASE64.decode(secret);
+		if (keyBytes.length < 32) {
+			throw new IllegalStateException("JWT_SECRET має містити щонайменше 32 байти (base64)");
+		}
+		this.signKey = Keys.hmacShaKeyFor(keyBytes);
+		this.expirationMs = expirationMs;
+	}
 
 	public String extractUsername(String token) {
 		return extractClaims(token).getSubject();
 	}
 
+	@SuppressWarnings("unchecked")
 	public List<String> extractRoles(String token) {
 		Object roles = extractClaims(token).get("role");
-
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.convertValue(roles, new TypeReference<List<String>>() {});
+		return roles == null ? List.of() : (List<String>) roles;
 	}
 
 	public boolean isTokenValid(String token, UserDetails userDetails) {
-		final String username = extractUsername(token);
-		return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+		Claims claims = extractClaims(token);
+		return claims.getSubject().equals(userDetails.getUsername())
+				&& !claims.getExpiration().before(new Date());
 	}
 
-	private boolean isTokenExpired(String token) {
-		return extractClaims(token).getExpiration().before(new Date());
-	}
 	public String generateToken(UserDetails userDetails) {
-		return Jwts.builder()
+		JwtBuilder builder = Jwts.builder()
 				.setSubject(userDetails.getUsername())
-				.claim("role", userDetails.getAuthorities()
-						.stream()
-						.map(GrantedAuthority::getAuthority)
-						.toList())
+				.claim("role", userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())
 				.setIssuedAt(new Date())
-				.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1h
-				.signWith(getSignKey(), SignatureAlgorithm.HS256)
-				.compact();
-	}
-	// 🔥 ОЦЕ МАЄ БУТИ ОБОВʼЯЗКОВО
-	private Claims extractClaims(String token) {
-		return Jwts.parserBuilder()
-				.setSigningKey(getSignKey())
-				.build()
-				.parseClaimsJws(token)
-				.getBody();
+				.setExpiration(new Date(System.currentTimeMillis() + expirationMs));
+		if (userDetails instanceof CustomUserDetails cud) {
+			builder.claim("userId", cud.getId());
+		}
+		return builder.signWith(signKey, SignatureAlgorithm.HS256).compact();
 	}
 
-	private Key getSignKey() {
-		byte[] keyBytes = Decoders.BASE64.decode(SECRET);
-		return Keys.hmacShaKeyFor(keyBytes);
+	private Claims extractClaims(String token) {
+		return Jwts.parserBuilder().setSigningKey(signKey).build().parseClaimsJws(token).getBody();
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

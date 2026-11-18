@@ -1,6 +1,5 @@
 package javarax.model;
 
-
 import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
@@ -14,8 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-
-@Table(name = "accounts") 
+@Table(name = "accounts")
 public class Account {
 
 	@Id
@@ -24,16 +22,16 @@ public class Account {
 
 	@Column(unique = true, nullable = false)
 	private String accountNumber;
-	private String name;
-	private BigDecimal balance;
 
-	@ManyToOne(fetch = FetchType.LAZY) // Lazy loading is better for performance
+	private String name;
+
+	@Column(nullable = false, precision = 19, scale = 2)
+	private BigDecimal balance = BigDecimal.ZERO;
+
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
 
-
-
-	// Getters and Setters
 	public Long getId() { return id; }
 	public void setId(Long id) { this.id = id; }
 

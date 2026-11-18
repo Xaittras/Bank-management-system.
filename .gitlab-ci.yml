@@ -1,4 +1,4 @@
-```yaml
+
 stages:
   - test
   - build
@@ -42,4 +42,3 @@ docker:
   script:
     - cd backend
     - docker build -t bank-management-system:$CI_COMMIT_SHORT_SHA .
-```

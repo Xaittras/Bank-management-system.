@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import javarax.exception.ConflictException;
 import javarax.kafka.EventPublisher;
 import javarax.model.User;
 import javarax.register.RegisterRequest;
@@ -93,8 +94,8 @@ class UserServiceTest {
 				.thenReturn(true);
 
 		// when + then
-		IllegalArgumentException exception = assertThrows(
-				IllegalArgumentException.class,
+		ConflictException exception = assertThrows(
+				ConflictException.class,
 				() -> userService.register(request)
 		);
 

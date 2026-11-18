@@ -1,5 +1,5 @@
-    import React, { useState } from "react";
-import { authApi } from "../api/api";
+import React, { useState } from "react";
+import { authApi, errorMessage } from "../api/api";
 import { useNavigate } from "react-router-dom";
 
 function Register() {
@@ -11,6 +11,10 @@ function Register() {
   const handleRegister = async () => {
     if (!name || !email || !password) {
       alert("Заповніть усі поля");
+      return;
+    }
+    if (password.length < 8) {
+      alert("Пароль має містити щонайменше 8 символів");
       return;
     }
     try {
@@ -25,8 +29,7 @@ function Register() {
     alert("Реєстрація успішна!");
     navigate("/");
   } catch (err) {
-    console.log(err.response?.data);
-    alert("Помилка реєстрації");
+    alert(errorMessage(err, "Помилка реєстрації"));
   }
 };
 

@@ -8,17 +8,24 @@ import AdminPanel from "./components/AdminPanel";
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/login" />;
+  return token ? children : <Navigate to="/" />;
 };
 
 const AdminRoute = ({ children }) => {
   const token = localStorage.getItem("token");
 
-  if (!token) return <Navigate to="/login" />;
+  if (!token) return <Navigate to="/" />;
 
-  const payload = JSON.parse(atob(token.split(".")[1]));
+  // role в JWT це масив ["ROLE_ADMIN"], тому порівняння payload.role !== "ADMIN" завжди давало редірект
+  let isAdmin = false;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    isAdmin = Array.isArray(payload.role) && payload.role.includes("ROLE_ADMIN");
+  } catch {
+    return <Navigate to="/" />;
+  }
 
-  if (payload.role !== "ADMIN") {
+  if (!isAdmin) {
     return <Navigate to="/bank" />;
   }
 

@@ -1,7 +1,6 @@
 package javarax.model;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
@@ -41,9 +40,6 @@ public class User implements UserDetails, Serializable {
 
 	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
 	private List<Account> accounts;
-
-
-
 
 	public User() {
 
@@ -101,71 +97,10 @@ public class User implements UserDetails, Serializable {
 		this.role = role;
 	}
 
-	private BigDecimal balance;
-
-	public BigDecimal getBalance() {
-		return balance;
-	}
-
 	public String getEmail() {
 
 		return email;
 	}
 
-
-
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
