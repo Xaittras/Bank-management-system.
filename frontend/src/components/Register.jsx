@@ -1,53 +1,56 @@
 import React, { useState } from "react";
 import { authApi, errorMessage } from "../api/api";
 import { useNavigate } from "react-router-dom";
+import AuthShell from "./AuthShell";
+import { useToast } from "./Toast";
 
 function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [toast, notify] = useToast();
   const navigate = useNavigate();
 
-  const handleRegister = async () => {
+  const handleRegister = async (e) => {
+    e.preventDefault();
     if (!name || !email || !password) {
-      alert("Заповніть усі поля");
+      notify("Заповніть усі поля", "error");
       return;
     }
     if (password.length < 8) {
-      alert("Пароль має містити щонайменше 8 символів");
+      notify("Пароль має містити щонайменше 8 символів", "error");
       return;
     }
     try {
-     await authApi.post("/register", {
-     
-  password: password,
-  name: name,
-  email: email
-});
-    
-
-    alert("Реєстрація успішна!");
-    navigate("/");
-  } catch (err) {
-    alert(errorMessage(err, "Помилка реєстрації"));
-  }
-};
+      await authApi.post("/register", { password, name, email });
+      notify("Реєстрація успішна!");
+      setTimeout(() => navigate("/"), 800);
+    } catch (err) {
+      notify(errorMessage(err, "Помилка реєстрації"), "error");
+    }
+  };
 
   return (
-    <div className="box">
-      <h3>🧾 Реєстрація</h3>
-      <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
-      <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-      <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-      <button onClick={handleRegister}>Зареєструватися</button>
-      <p>
-        Вже є акаунт? <button onClick={() => navigate("/")}>Увійти</button>
-      </p>
-    </div>
+    <AuthShell
+      title="Реєстрація"
+      subtitle="Створіть акаунт за хвилину"
+      footer={<>Вже є акаунт? <button type="button" className="link" onClick={() => navigate("/")}>Увійти</button></>}
+    >
+      <form onSubmit={handleRegister}>
+        <label>Name
+          <input autoComplete="name" placeholder="Eddy Cusuma" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>Email
+          <input type="email" autoComplete="username" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+        <label>Password
+          <input type="password" autoComplete="new-password" placeholder="Мінімум 8 символів" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        <button className="btn primary" type="submit">Зареєструватися</button>
+      </form>
+      {toast}
+    </AuthShell>
   );
 }
 
 export default Register;
-
-
-

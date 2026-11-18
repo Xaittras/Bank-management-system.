@@ -9,6 +9,7 @@ export const getAuthData = () => {
 
     return {
       userId: payload.userId || payload.sub,
+      email: payload.sub,
       role: payload.role?.[0]?.replace("ROLE_", "")
     };
   } catch {

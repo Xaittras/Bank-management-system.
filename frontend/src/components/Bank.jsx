@@ -1,37 +1,67 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { adminApi, userApi, newIdempotencyKey, errorMessage } from "../api/api";
-import BankCard from "./BankCard";
-import { useNavigate } from "react-router-dom";
-import AdminPanel from "./AdminPanel";
 import { getAuthData } from "./auth";
+import Layout from "./Layout";
+import AdminPanel from "./AdminPanel";
+import { useToast } from "./Toast";
+import Dashboard from "../pages/Dashboard";
+import TransactionsPage from "../pages/TransactionsPage";
+import AccountsPage from "../pages/AccountsPage";
+import CardsPage from "../pages/CardsPage";
+import SettingsPage from "../pages/SettingsPage";
+import InvestmentsPage from "../pages/InvestmentsPage";
+import LoansPage from "../pages/LoansPage";
+import ServicesPage from "../pages/ServicesPage";
+import PrivilegesPage from "../pages/PrivilegesPage";
+import { parseAmount } from "../lib/stats";
+import { tierFor } from "../lib/tiers";
 
-// Сума: додатне число максимум з 2 знаками після коми (узгоджено з валідацією на бекенді)
-const AMOUNT_RE = /^\d+([.,]\d{1,2})?$/;
+// Усі пункти меню з макета
+const ROUTES = [
+  { path: "", label: "Dashboard", title: "Overview", icon: "home" },
+  { path: "transactions", label: "Transactions", title: "Transactions", icon: "swap" },
+  { path: "accounts", label: "Accounts", title: "Accounts", icon: "user" },
+  { path: "investments", label: "Investments", title: "Investments", icon: "chart" },
+  { path: "credit-cards", label: "Credit Cards", title: "Credit Cards", icon: "card" },
+  { path: "loans", label: "Loans", title: "Loans", icon: "coins" },
+  { path: "services", label: "Services", title: "Services", icon: "tool" },
+  { path: "privileges", label: "My Privileges", title: "My Privileges", icon: "star" },
+  { path: "settings", label: "Setting", title: "Setting", icon: "gear" },
+];
+const NAV = ROUTES.map((r) => ({ to: r.path ? `/bank/${r.path}` : "/bank", end: !r.path, label: r.label, icon: r.icon }));
 
 function Bank() {
   const [transactions, setTransactions] = useState([]);
-  const [amounts, setAmounts] = useState({});
+  const [amount, setAmount] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
-  const [userId, setUserId] = useState(null);
   const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [users, setUsers] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [role, setRole] = useState(null);
+  const [auth, setAuth] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [toast, notify] = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   // Ключі ідемпотентності незавершених операцій. Якщо відповідь загубилась (мережа),
   // повторне натискання використає ТОЙ САМИЙ ключ, і гроші не зарахуються двічі.
   const pendingKeys = useRef({});
 
+  const role = auth?.role;
+
+  // Перехід між вкладками: починаємо нову сторінку зверху
   useEffect(() => {
-    const auth = getAuthData();
-    if (!auth) {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  useEffect(() => {
+    const data = getAuthData();
+    if (!data) {
       navigate("/");
       return;
     }
-    setUserId(auth.userId);
-    setRole(auth.role);
+    setAuth(data);
   }, [navigate]);
 
   const getUserAccounts = useCallback(async () => {
@@ -39,27 +69,27 @@ function Bank() {
       const res = await userApi.get("/accounts");
       setAccounts(res.data);
     } catch (err) {
-      alert(errorMessage(err, "Помилка завантаження акаунтів"));
+      notify(errorMessage(err, "Помилка завантаження акаунтів"), "error");
     }
-  }, []);
+  }, [notify]);
 
   const getAllUsers = useCallback(async () => {
     try {
       const res = await adminApi.get("/users");
       setUsers(res.data);
     } catch (err) {
-      alert(errorMessage(err, "Помилка завантаження користувачів"));
+      notify(errorMessage(err, "Помилка завантаження користувачів"), "error");
     }
-  }, []);
+  }, [notify]);
 
   const getTransactions = useCallback(async (accountId) => {
     try {
       const res = await userApi.get(`/accounts/${accountId}/transactions`);
       setTransactions(res.data);
     } catch (err) {
-      alert(errorMessage(err, "Помилка завантаження транзакцій"));
+      notify(errorMessage(err, "Помилка завантаження транзакцій"), "error");
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     if (selectedAccountId) getTransactions(selectedAccountId);
@@ -74,52 +104,61 @@ function Bank() {
     else if (role) getUserAccounts();
   }, [role, getAllUsers, getUserAccounts]);
 
-  const createAccount = async () => {
+  const createAccount = async (e) => {
+    e?.preventDefault();
     try {
       const res = await userApi.post("/accounts", { name: newAccountName });
       setAccounts((prev) => [...prev, res.data]);
+      setSelectedAccountId(res.data.id);
       setNewAccountName("");
+      notify("Рахунок створено");
     } catch (err) {
-      alert(errorMessage(err, "Помилка створення акаунта"));
+      notify(errorMessage(err, "Помилка створення акаунта"), "error");
     }
   };
 
-  const setAmountForAccount = (id, value) => setAmounts((prev) => ({ ...prev, [id]: value }));
-
-  const runBalanceOperation = async (kind, accountId) => {
-    const raw = String(amounts[accountId] ?? "").trim();
-    if (!AMOUNT_RE.test(raw) || Number(raw.replace(",", ".")) <= 0) {
-      alert("Введіть додатну суму (максимум 2 знаки після коми)");
-      return;
-    }
-    const amount = Number(raw.replace(",", "."));
-
-    const opId = `${kind}:${accountId}:${amount}`;
+  // Єдина точка грошових операцій для всіх вкладок (швидка операція, інвестиції, кредити, платежі).
+  // tag відокремлює ключі ідемпотентності різних сценаріїв.
+  const transact = useCallback(async (kind, accountId, value, tag = "op") => {
+    const opId = `${tag}:${kind}:${accountId}:${value}`;
     if (!pendingKeys.current[opId]) pendingKeys.current[opId] = newIdempotencyKey();
 
     setBusy(true);
     try {
       await userApi.post(
         `/${kind}`,
-        { accountId, amount },
+        { accountId, amount: value },
         { headers: { "Idempotency-Key": pendingKeys.current[opId] } }
       );
       delete pendingKeys.current[opId]; // операція завершена: наступна матиме новий ключ
-      alert(kind === "deposit" ? "Поповнення успішне" : "Зняття успішне");
-      setAmounts((prev) => ({ ...prev, [accountId]: "" }));
       await getUserAccounts();
       await getTransactions(accountId);
+      return true;
     } catch (err) {
       if (err.response) {
         // Сервер дав остаточну відповідь (помилка валідації/бізнес-логіки): ключ більше не потрібен
         delete pendingKeys.current[opId];
-        alert(errorMessage(err, kind === "deposit" ? "Помилка депозиту" : "Помилка зняття"));
+        notify(errorMessage(err, "Помилка операції"), "error");
       } else {
         // Відповіді немає: невідомо, чи виконалась операція. Ключ лишається; повтор безпечний.
-        alert("Немає зв'язку з сервером. Натисніть ще раз: повторний запит не задублює операцію.");
+        notify("Немає зв'язку з сервером. Натисніть ще раз: повторний запит не задублює операцію.", "error");
       }
+      return false;
     } finally {
       setBusy(false);
+    }
+  }, [getUserAccounts, getTransactions, notify]);
+
+  const runBalanceOperation = async (kind) => {
+    const value = parseAmount(amount);
+    if (!value) {
+      notify("Введіть додатну суму (максимум 2 знаки після коми)", "error");
+      return;
+    }
+    const ok = await transact(kind, selectedAccountId, value, "quick");
+    if (ok) {
+      notify(kind === "deposit" ? "Поповнення успішне" : "Зняття успішне");
+      setAmount("");
     }
   };
 
@@ -129,100 +168,47 @@ function Bank() {
     navigate("/");
   };
 
+  const selected = accounts.find((a) => a.id === selectedAccountId);
+  const holder = auth?.email?.split("@")[0] ?? "";
+
+  // Рівень клієнта залежить від сумарного балансу: його бачать Privileges і Loans
+  const tierInfo = tierFor(accounts.reduce((sum, a) => sum + Number(a.balance), 0));
+
+  if (!auth) return null;
+
   if (role === "ADMIN") {
-    return <AdminPanel users={users} logout={logout} />;
+    return (
+      <>
+        <AdminPanel users={users} logout={logout} email={auth.email} onRefresh={getAllUsers} />
+        {toast}
+      </>
+    );
   }
 
+  const ctx = {
+    auth, holder, logout, accounts, selected, selectedAccountId, setSelectedAccountId, transactions,
+    amount, setAmount, busy, runBalanceOperation, newAccountName, setNewAccountName, createAccount,
+    transact, notify, tierInfo,
+  };
+
+  const current = ROUTES.find((r) => pathname.replace(/\/$/, "") === (r.path ? `/bank/${r.path}` : "/bank")) ?? ROUTES[0];
+
   return (
-    <div className="box">
-      <h3>💳 My Bank</h3>
-
-      <button onClick={getUserAccounts}>🔄 Refresh</button>
-      <button onClick={logout}>🚪 Logout</button>
-
-      <hr />
-
-      <h4>User ID: {userId}</h4>
-
-      <div className="layout" style={{ display: "flex", gap: "20px" }}>
-        {/* LEFT SIDE - ACCOUNTS */}
-        <div className="left" style={{ width: "40%" }}>
-          {accounts.length > 0 ? (
-            accounts.map((acc) => (
-              <div
-                key={acc.id}
-                onClick={() => setSelectedAccountId(acc.id)}
-                style={{
-                  padding: "10px",
-                  marginBottom: "10px",
-                  border: selectedAccountId === acc.id ? "2px solid green" : "1px solid gray",
-                  cursor: "pointer",
-                }}
-              >
-                <BankCard account={acc} />
-
-                <input
-                  placeholder="Amount"
-                  inputMode="decimal"
-                  value={amounts[acc.id] || ""}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => setAmountForAccount(acc.id, e.target.value)}
-                />
-
-                <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
-                  <button
-                    disabled={busy}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      runBalanceOperation("deposit", acc.id);
-                    }}
-                  >
-                    ➕ Deposit
-                  </button>
-
-                  <button
-                    disabled={busy}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      runBalanceOperation("withdraw", acc.id);
-                    }}
-                  >
-                    ➖ Withdraw
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="card">
-              <h3>Create your first account</h3>
-              <input
-                placeholder="Account name"
-                value={newAccountName}
-                onChange={(e) => setNewAccountName(e.target.value)}
-              />
-              <button onClick={createAccount}>➕ Create Account</button>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT SIDE - TRANSACTIONS */}
-        <div className="right" style={{ width: "60%" }}>
-          <h3>Transactions</h3>
-
-          {transactions.length > 0 ? (
-            transactions.map((tx) => (
-              <div key={tx.id} style={{ marginBottom: "10px" }}>
-                <b>{tx.type}</b> - {tx.amount}
-                <br />
-                <small>{tx.createdAt}</small>
-              </div>
-            ))
-          ) : (
-            <p>No transactions</p>
-          )}
-        </div>
-      </div>
-    </div>
+    <Layout title={current.title} nav={NAV} email={auth.email} onLogout={logout} onRefresh={getUserAccounts}>
+      <Routes>
+        <Route index element={<Dashboard ctx={ctx} />} />
+        <Route path="transactions" element={<TransactionsPage ctx={ctx} />} />
+        <Route path="accounts" element={<AccountsPage ctx={ctx} />} />
+        <Route path="credit-cards" element={<CardsPage ctx={ctx} />} />
+        <Route path="settings" element={<SettingsPage ctx={ctx} />} />
+        <Route path="investments" element={<InvestmentsPage ctx={ctx} />} />
+        <Route path="loans" element={<LoansPage ctx={ctx} />} />
+        <Route path="services" element={<ServicesPage ctx={ctx} />} />
+        <Route path="privileges" element={<PrivilegesPage ctx={ctx} />} />
+        <Route path="*" element={<Navigate to="/bank" replace />} />
+      </Routes>
+      {toast}
+    </Layout>
   );
 }
 
