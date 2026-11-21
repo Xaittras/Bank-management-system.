@@ -18,21 +18,26 @@ import io.jsonwebtoken.security.Keys;
 import javarax.dto.CustomUserDetails;
 
 @Service
+
 public class JwtService {
 
-	private final Key signKey;
-	private final long expirationMs;
+    private final Key signKey;
+    private final long expirationMs;
+public  JwtService(
+        @Value("${JWT_SECRET}") String secret,
+        @Value("${JWT_EXPIRATION_MS:3600000}") long expirationMs) {
 
-	/** secret: base64, мінімум 32 байти (HS256). Береться з оточення, а не з коду. */
-	public JwtService(@Value("${jwt.secret}") String secret,
-			@Value("${jwt.expiration-ms:3600000}") long expirationMs) {
-		byte[] keyBytes = Decoders.BASE64.decode(secret);
-		if (keyBytes.length < 32) {
-			throw new IllegalStateException("JWT_SECRET має містити щонайменше 32 байти (base64)");
-		}
-		this.signKey = Keys.hmacShaKeyFor(keyBytes);
-		this.expirationMs = expirationMs;
-	}
+    byte[] keyBytes = Decoders.BASE64.decode(secret);
+
+    if (keyBytes.length < 32) {
+        throw new IllegalStateException(
+            "JWT_SECRET має містити щонайменше 32 байти (base64)"
+        );
+    }
+
+    this.signKey = Keys.hmacShaKeyFor(keyBytes);
+    this.expirationMs = expirationMs;
+}
 
 	public String extractUsername(String token) {
 		return extractClaims(token).getSubject();
